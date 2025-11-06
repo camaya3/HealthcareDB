@@ -1,0 +1,40 @@
+Use Healthcare_DB
+
+	Select
+		ProviderSpecialty,
+		Format(GrossCharges,'$#,#') as 'GrossCharges',
+		Format(ContractualAdj, '$#,#') as 'Contractualadj',
+		Format(NetCharges, '$#,#') as 'NetCharges',
+		Format(Payments, '$#,#') as 'Payments',
+		Format(Adjustments, '$#,#') as 'Adjustments',
+		Format(-Payments/NetCharges, 'P') as 'NetCollectionRate',
+		Format([Accounts Receivable], '$#,#') as 'AccountsReceivable',
+		Format([Accounts Receivable]/NetCharges, 'P') as 'PercentinAR'
+	From (
+			Select
+				ProviderSpecialty,		
+				SUM(GrossCharge) as 'GrossCharges',
+				SUM(Case When AdjustmentReason = 'Contractual'
+					  Then Adjustment
+					  Else NUll
+					  End) as 'ContractualAdj',
+				SUM(GrossCharge) + 
+					SUM(Case When AdjustmentReason = 'Contractual'
+					  Then Adjustment
+					  Else NUll
+					  End) as 'NetCharges',
+				SUM(Payment) as 'Payments',
+				SUM(Adjustment) as 'Adjustments',
+				SUM(AR) as 'Accounts Receivable'
+			From FactTable
+			Inner Join dimTransaction
+				  On FactTable.dimTransactionPK = dimTransaction.dimTransactionPK
+			Inner Join dimPhysician
+				  On FactTable.dimPhysicianPK = dimPhysician.dimPhysicianPK
+			Group by ProviderSpecialty) as A
+	Where NetCharges > 25000
+	Order by NetCollectionRate ASC
+-- Here we are looking at the contractual adjustments that were done for each Physician type.
+-- We filter through the data to find only the physicians that have a NetCharge of 25,000 or higher and 
+--consider their rate. We want to see who has the worst collection rate and where might the rest of the money 
+-- be going.
